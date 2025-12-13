@@ -1,9 +1,5 @@
 from flask import Flask, render_template, request
 import psycopg2
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = Flask(__name__)
 
@@ -11,7 +7,7 @@ app = Flask(__name__)
 def get_db_connection():
     conn = psycopg2.connect(
         host="my-postgres-db.c0tikqw806cm.us-east-1.rds.amazonaws.com",
-        port="5432",
+        port=5432,
         database="my-postgres-db",
         user="sridevi",
         password="sridevi123"
@@ -40,8 +36,11 @@ def submit():
         conn.commit()
         cur.close()
         conn.close()
+        print(f"✓ Data saved: {name}, {email}")
     except Exception as e:
-        print("Database Error:", e)
+        print(f"✗ Database Error: {e}")
+        import traceback
+        traceback.print_exc()
         return "Error saving feedback", 500
 
     return render_template("success.html", name=name)
