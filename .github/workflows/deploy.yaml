@@ -38,7 +38,7 @@ jobs:
 
     - name: Deploy to EC2
       run: |
-        ssh -i /c/Users/devim/Downloads/sridevi_key.pem ec2-user@ec2-3-236-106-50.compute-1.amazonaws.com << 'EOF'
+        ssh -i "sridevi_key.pem" ec2-user@ec2-3-236-106-50.compute-1.amazonaws.com << 'EOF'
           # Pull latest image
           docker pull 625847798827.dkr.ecr.us-east-1.amazonaws.com/docker_2tier:latest
           # Stop & remove old container if exists
