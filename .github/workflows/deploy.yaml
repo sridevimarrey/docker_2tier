@@ -39,8 +39,12 @@ jobs:
     - name: Deploy to EC2
       run: |
         ssh ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-        docker pull ${{ secrets.ECR_URI }}:latest
+        # Pull latest image
+        docker pull 625847798827.dkr.ecr.us-east-1.amazonaws.com/docker_2tier:latest
+        # Stop & remove old container if exists
         docker stop app || true
         docker rm app || true
-        docker run -d -p 5000:5000 --name app ${{ secrets.ECR_URI }}:latest
+        # Run new container
+        docker run -d -p 5000:5000 --name app 625847798827.dkr.ecr.us-east-1.amazonaws.com/docker_2tier:latest
         EOF
+
