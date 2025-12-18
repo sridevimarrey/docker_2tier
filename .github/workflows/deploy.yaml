@@ -10,10 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ===== 1. Checkout code =====
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ===== AWS AUTH =====
+      # ===== 2. Configure AWS credentials =====
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -21,39 +22,47 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # ===== ECR =====
+      # ===== 3. Login to Amazon ECR =====
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      # ===== 4. Build and Push Docker Image =====
       - name: Build and Push Docker Image to ECR
         run: |
           docker build -t docker-2tier-app .
           docker tag docker-2tier-app:latest ${{ secrets.ECR_URI }}:latest
           docker push ${{ secrets.ECR_URI }}:latest
 
-      # ===== EC2 =====
-      - name: Setup SSH
+      # ===== 5. Set up SSH for EC2 =====
+      - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_PEM_KEY }}" > ~/.ssh/id_rsa
+          # Remove Windows line endings if present
+          echo "${{ secrets.EC2_PEM_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          # Add EC2 host key to known_hosts
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-
+      # ===== 6. Deploy to EC2 =====
       - name: Deploy to EC2
         run: |
-          ssh ec2-user@${{ secrets.EC2_HOST }} << "EOF"
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << "EOF"
+            # Login to ECR on the EC2 instance
             aws ecr get-login-password --region us-east-1 | docker login \
               --username AWS \
               --password-stdin ${{ secrets.ECR_URI }}
 
+            # Pull latest Docker image
             docker pull ${{ secrets.ECR_URI }}:latest
 
+            # Stop and remove old container if exists
             docker stop app || true
             docker rm app || true
 
+            # Run new container
             docker run -d \
               --name app \
+              --restart unless-stopped \
               -p 5000:5000 \
               -e DB_HOST=${{ secrets.DB_HOST }} \
               -e DB_PORT=5432 \
@@ -62,3 +71,7 @@ jobs:
               -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
               ${{ secrets.ECR_URI }}:latest
           EOF
+
+      # ===== 7. Notify Deployment Success =====
+      - name: Notify Deployment Success
+        run: echo "Deployment to EC2 instance was successful!"

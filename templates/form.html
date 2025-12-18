@@ -1,23 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Simple Google Form</title>
+    <title>Feedback Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
 </head>
 <body>
     <h2>Feedback Form</h2>
-
     <form action="/submit" method="post">
         <label>Name:</label><br>
         <input type="text" name="name" required><br><br>
-
         <label>Email:</label><br>
         <input type="email" name="email" required><br><br>
-
         <label>Feedback:</label><br>
-        <textarea name="feedback" required></textarea><br><br>
-
+        <textarea name="feedback" rows="5" required></textarea><br><br>
         <button type="submit">Submit</button>
     </form>
-
 </body>
 </html>
