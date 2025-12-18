@@ -37,11 +37,11 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          # Decode base64-encoded PEM key
-          echo "${{ secrets.EC2_PEM_KEY }}" | base64 -d > ~/.ssh/id_rsa
+          # Decode base64-encoded PEM key (handle potential whitespace)
+          echo "${{ secrets.EC2_PEM_KEY }}" | tr -d ' \n' | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           # Add EC2 host key to known_hosts
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       # ===== 6. Deploy to EC2 =====
       - name: Deploy to EC2
