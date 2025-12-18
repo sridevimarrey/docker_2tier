@@ -11,46 +11,53 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (for GitHub Actions)
-        uses: aws-actions/configure-aws-credentials@v2
+      # ===== AWS AUTH =====
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      # ===== ECR =====
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and Push Docker Image
+      - name: Build and Push Docker Image to ECR
         run: |
           docker build -t docker-2tier-app .
           docker tag docker-2tier-app:latest ${{ secrets.ECR_URI }}:latest
           docker push ${{ secrets.ECR_URI }}:latest
 
+      # ===== EC2 =====
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_PEM_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ec2-3-236-106-50.compute-1.amazonaws.com >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to EC2
         run: |
-          ssh -i ~/.ssh/id_rsa ec2-user@ec2-3-236-106-50.compute-1.amazonaws.com << 'EOF'
+          ssh ec2-user@${{ secrets.EC2_HOST }} << "EOF"
             aws ecr get-login-password --region us-east-1 | docker login \
               --username AWS \
-              --password-stdin 625847798827.dkr.ecr.us-east-1.amazonaws.com
+              --password-stdin ${{ secrets.ECR_URI }}
 
-            docker pull 625847798827.dkr.ecr.us-east-1.amazonaws.com/docker_2tier:latest
+            docker pull ${{ secrets.ECR_URI }}:latest
 
             docker stop app || true
             docker rm app || true
 
-            docker run -d -p 5000:5000 --name app \
-              625847798827.dkr.ecr.us-east-1.amazonaws.com/docker_2tier:latest
+            docker run -d \
+              --name app \
+              -p 5000:5000 \
+              -e DB_HOST=${{ secrets.DB_HOST }} \
+              -e DB_PORT=5432 \
+              -e DB_NAME=${{ secrets.DB_NAME }} \
+              -e DB_USER=${{ secrets.DB_USER }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              ${{ secrets.ECR_URI }}:latest
           EOF
-
-
-

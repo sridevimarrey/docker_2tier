@@ -1,16 +1,17 @@
 from flask import Flask, render_template, request
 import psycopg2
+import os
 
 app = Flask(__name__)
 
 # Database connection function
 def get_db_connection():
     conn = psycopg2.connect(
-        host="my-postgres-db.c0tikqw806cm.us-east-1.rds.amazonaws.com",
-        port=5432,
-        database="my-postgres-db",
-        user="sridevi",
-        password="sridevi123"
+        host=os.getenv("DB_HOST"),
+        port=int(os.getenv("DB_PORT", 5432)),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD")
     )
     return conn
 
