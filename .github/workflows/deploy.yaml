@@ -30,7 +30,7 @@ jobs:
           docker build -t docker-2tier-app .
           docker tag docker-2tier-app:latest ${{ secrets.ECR_URI }}:latest
           docker push ${{ secrets.ECR_URI }}:latest
-
+          
       # ===== EC2 =====
       - name: Setup SSH
         run: |
