@@ -10,11 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ===== 1. Checkout code =====
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ===== 2. Configure AWS credentials =====
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -22,73 +20,44 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # ===== 3. Login to Amazon ECR =====
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ===== 4. Build and Push Docker Image =====
-      - name: Build and Push Docker Image to ECR
+      - name: Build and Push Docker Image
         run: |
           docker build -t docker-2tier-app .
           docker tag docker-2tier-app:latest ${{ secrets.ECR_URI }}:latest
           docker push ${{ secrets.ECR_URI }}:latest
 
-      # ===== 5. Set up SSH for EC2 =====
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          # Write PEM key directly without base64 decoding
-          cat > ~/.ssh/id_rsa << 'PEMPEM'
-          ${{ secrets.EC2_PEM_KEY }}
-          PEMPEM
+          echo "${{ secrets.EC2_PEM_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          # Add EC2 host key to known_hosts
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      # ===== 6. Deploy to EC2 =====
       - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'DEPLOYEOF'
-            # Install Docker if not already installed
-            if ! command -v docker &> /dev/null; then
-              sudo yum update -y
-              sudo yum install -y docker
-              sudo systemctl start docker
-              sudo systemctl enable docker
-              sudo usermod -aG docker ec2-user
-            fi
-            
-            # Configure AWS credentials
-            mkdir -p ~/.aws
-            cat > ~/.aws/credentials << 'CREDEOF'
-            [default]
-            aws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}
-            aws_secret_access_key = ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            CREDEOF
-            
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
             # Login to ECR
-            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.ECR_URI }}
-            
+            aws ecr get-login-password --region us-east-1 | \
+              docker login --username AWS --password-stdin 625847798827.dkr.ecr.us-east-1.amazonaws.com
+
             # Pull latest image
-            docker pull ${{ secrets.ECR_URI }}:latest
-            
-            # Stop and remove old container
+            docker pull 625847798827.dkr.ecr.us-east-1.amazonaws.com/docker-2tier-app:latest
+
+            # Stop old container and remove it
             docker stop app || true
             docker rm app || true
-            
+
             # Run new container
-            docker run -d \
-              --name app \
+            docker run -d --name app \
               --restart unless-stopped \
               -p 5000:5000 \
               -e DB_HOST=${{ secrets.DB_HOST }} \
-              -e DB_PORT=${{ secrets.DB_PORT }} \
+              -e DB_PORT=5432 \
               -e DB_NAME=${{ secrets.DB_NAME }} \
               -e DB_USER=${{ secrets.DB_USER }} \
               -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-              ${{ secrets.ECR_URI }}:latest
-          DEPLOYEOF
-
-      # ===== 7. Notify Deployment Success =====
-      - name: Notify Deployment Success
-        run: echo "Deployment to EC2 instance was successful!"
+              625847798827.dkr.ecr.us-east-1.amazonaws.com/docker-2tier-app:latest
+          EOF
